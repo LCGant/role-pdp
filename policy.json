@@ -1,0 +1,28 @@
+{
+  "context_policies": [
+    {
+      "action_prefix": "admin:",
+      "allow_cidrs": [
+        "127.0.0.1/32",
+        "::1/128",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16"
+      ],
+      "start_hour": 7,
+      "end_hour": 22
+    }
+  ],
+  "step_up_policies": [
+    {
+      "action_prefix": "admin:",
+      "required_aal": 2,
+      "max_auth_age": "10m"
+    },
+    {
+      "action_suffix": ":delete",
+      "required_aal": 2,
+      "max_auth_age": "5m"
+    }
+  ]
+}

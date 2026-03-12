@@ -1,0 +1,54 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  GO_VERSION: 1.26.1
+  GOTOOLCHAIN: go1.26.1
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pdp
+          POSTGRES_PASSWORD: pdp
+          POSTGRES_DB: pdp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pdp"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Wait for Postgres
+        run: |
+          for i in {1..20}; do
+            pg_isready -h localhost -U pdp -p 5432 && exit 0
+            sleep 2
+          done
+          echo "Postgres not ready" && exit 1
+      - name: Run migrations
+        env:
+          PDP_DB_URL: postgres://pdp:pdp@localhost:5432/pdp?sslmode=disable
+        run: go run ./cmd/migrate
+      - name: Seed sample data
+        env:
+          PDP_DB_URL: postgres://pdp:pdp@localhost:5432/pdp?sslmode=disable
+        run: go run ./cmd/seed
+      - name: Integration tests (postgres store)
+        env:
+          TEST_DB_URL: postgres://pdp:pdp@localhost:5432/pdp?sslmode=disable
+        run: go test -tags=integration ./internal/store/postgres

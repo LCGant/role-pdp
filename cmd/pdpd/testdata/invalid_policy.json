@@ -1,0 +1,8 @@
+{
+  "context_policies": [
+    {
+      "action_prefix": "admin:",
+      "allow_cidrs": ["not-a-cidr"]
+    }
+  ]
+}

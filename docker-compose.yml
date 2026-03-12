@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build: .
+    command: ["/usr/local/bin/migrate"]
+    environment:
+      PDP_DB_URL: ${PDP_DB_URL:?set PDP_DB_URL}
+      PDP_LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pdp:
+    build: .
+    environment:
+      PDP_HTTP_ADDR: "0.0.0.0:8080"
+      PDP_DB_URL: ${PDP_DB_URL:?set PDP_DB_URL}
+      PDP_LOG_LEVEL: info
+      PDP_ENABLE_METRICS: "true"
+      PDP_ENABLE_OWNERSHIP: "true"
+      PDP_STEPUP_MAX_AGE: 30m
+      PDP_INTERNAL_TOKEN: ${PDP_INTERNAL_TOKEN:?set PDP_INTERNAL_TOKEN}
+      PDP_POLICY_FILE: ${PDP_POLICY_FILE:-/app/policy.json}
+      PDP_ADMIN_TOKEN: ${PDP_ADMIN_TOKEN:?set PDP_ADMIN_TOKEN}
+      # Uncomment to enable redis decision cache
+      # PDP_REDIS_URL: ${PDP_REDIS_URL:?set PDP_REDIS_URL}
+    volumes:
+      - ./policy.json:/app/policy.json:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  redis:
+    image: redis:7-alpine
+    command: ["sh", "-c", "redis-server --save '' ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli ${REDIS_PASSWORD:+-a $REDIS_PASSWORD} ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata: {}

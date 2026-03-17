@@ -70,3 +70,73 @@ func TestClientEnrichReturnsNotFound(t *testing.T) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
+
+func TestClientEnrichHydratesPlaylistDecision(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "secret" {
+			t.Fatalf("unexpected internal token")
+		}
+		if r.Header.Get("X-User-Id") != "u1" {
+			t.Fatalf("unexpected user id header")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"playlist":{"owner_actor_id":"u2","owner_actor_type":"person","visibility":"shared"},"viewer_blocked":false,"viewer_follows":true,"viewer_friend":false,"viewer_shared":false,"viewer_collaborator":true}`))
+	}))
+	defer srv.Close()
+
+	client := NewClient(config.Config{
+		SocialBaseURL:       srv.URL,
+		SocialInternalToken: "secret",
+		SocialTimeout:       time.Second,
+	})
+	req := authz.DecisionRequest{
+		Subject:  authz.Subject{UserID: "u1", TenantID: "t1"},
+		Action:   "playlists:read",
+		Resource: authz.Resource{Type: "playlists", ID: "99", TenantID: "t1"},
+	}
+
+	if err := client.Enrich(context.Background(), &req); err != nil {
+		t.Fatalf("enrich playlist: %v", err)
+	}
+	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "shared" {
+		t.Fatalf("expected enriched playlist resource context, got %+v", req.Resource)
+	}
+	if !req.Relationships.Collaborator || req.Relationships.Shared || !req.Relationships.Following || req.Relationships.Friend {
+		t.Fatalf("expected enriched playlist relationships, got %+v", req.Relationships)
+	}
+}
+
+func TestClientEnrichHydratesEventDecision(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "secret" {
+			t.Fatalf("unexpected internal token")
+		}
+		if r.Header.Get("X-User-Id") != "u1" {
+			t.Fatalf("unexpected user id header")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"event":{"owner_actor_id":"u2","owner_actor_type":"person","visibility":"invite_only"},"viewer_blocked":false,"viewer_follows":true,"viewer_friend":true,"viewer_invited":true,"viewer_participant":false,"viewer_organizer":false}`))
+	}))
+	defer srv.Close()
+
+	client := NewClient(config.Config{
+		SocialBaseURL:       srv.URL,
+		SocialInternalToken: "secret",
+		SocialTimeout:       time.Second,
+	})
+	req := authz.DecisionRequest{
+		Subject:  authz.Subject{UserID: "u1", TenantID: "t1"},
+		Action:   "events:read",
+		Resource: authz.Resource{Type: "events", ID: "7", TenantID: "t1"},
+	}
+
+	if err := client.Enrich(context.Background(), &req); err != nil {
+		t.Fatalf("enrich event: %v", err)
+	}
+	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "invite_only" {
+		t.Fatalf("expected enriched event resource context, got %+v", req.Resource)
+	}
+	if !req.Relationships.Invited || !req.Relationships.Friend || !req.Relationships.Following || req.Relationships.Participant {
+		t.Fatalf("expected enriched event relationships, got %+v", req.Relationships)
+	}
+}

@@ -260,3 +260,57 @@ func TestDecisionProfilesFailClosedWithoutSocialEnricher(t *testing.T) {
 		t.Fatalf("expected social_context_unavailable deny, got %+v", out)
 	}
 }
+
+func TestDecisionPlaylistsFailClosedWithoutSocialEnricher(t *testing.T) {
+	engine := &captureEngine{}
+	router := NewRouter(RouterParams{
+		Engine:        engine,
+		EnableMetrics: false,
+		InternalToken: "internal-secret",
+	})
+
+	body := `{"subject":{"user_id":"u1","tenant_id":"t1"},"action":"playlists:read","resource":{"type":"playlists","id":"99","tenant_id":"t1"}}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", "internal-secret")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var out authz.DecisionResponse
+	if err := json.NewDecoder(rr.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Allow || out.Reason != "social_context_unavailable" {
+		t.Fatalf("expected social_context_unavailable deny, got %+v", out)
+	}
+}
+
+func TestDecisionEventsFailClosedWithoutSocialEnricher(t *testing.T) {
+	engine := &captureEngine{}
+	router := NewRouter(RouterParams{
+		Engine:        engine,
+		EnableMetrics: false,
+		InternalToken: "internal-secret",
+	})
+
+	body := `{"subject":{"user_id":"u1","tenant_id":"t1"},"action":"events:read","resource":{"type":"events","id":"7","tenant_id":"t1"}}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/decision", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", "internal-secret")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var out authz.DecisionResponse
+	if err := json.NewDecoder(rr.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Allow || out.Reason != "social_context_unavailable" {
+		t.Fatalf("expected social_context_unavailable deny, got %+v", out)
+	}
+}

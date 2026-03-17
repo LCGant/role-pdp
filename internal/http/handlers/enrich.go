@@ -14,8 +14,11 @@ type RequestEnricher interface {
 }
 
 func enrichDecisionRequest(ctx context.Context, enricher RequestEnricher, req *authz.DecisionRequest) (*authz.DecisionResponse, error) {
-	if req != nil && strings.EqualFold(strings.TrimSpace(req.Resource.Type), "profiles") && enricher == nil {
-		return &authz.DecisionResponse{Allow: false, Reason: "social_context_unavailable"}, nil
+	if req != nil && enricher == nil {
+		resourceType := strings.ToLower(strings.TrimSpace(req.Resource.Type))
+		if resourceType == "profiles" || resourceType == "playlists" || resourceType == "events" {
+			return &authz.DecisionResponse{Allow: false, Reason: "social_context_unavailable"}, nil
+		}
 	}
 	if enricher == nil {
 		return nil, nil

@@ -27,6 +27,7 @@ type Client struct {
 
 type profileAuthzContext struct {
 	Profile struct {
+		PublicID   string `json:"public_id"`
 		ActorID    string `json:"actor_id"`
 		ActorType  string `json:"actor_type"`
 		Visibility string `json:"visibility"`
@@ -38,6 +39,7 @@ type profileAuthzContext struct {
 
 type playlistAuthzContext struct {
 	Playlist struct {
+		PublicID       string `json:"public_id"`
 		OwnerActorID   string `json:"owner_actor_id"`
 		OwnerActorType string `json:"owner_actor_type"`
 		Visibility     string `json:"visibility"`
@@ -51,6 +53,7 @@ type playlistAuthzContext struct {
 
 type postAuthzContext struct {
 	Post struct {
+		PublicID       string `json:"public_id"`
 		OwnerActorID   string `json:"owner_actor_id"`
 		OwnerActorType string `json:"owner_actor_type"`
 		Visibility     string `json:"visibility"`
@@ -62,6 +65,7 @@ type postAuthzContext struct {
 
 type eventAuthzContext struct {
 	Event struct {
+		PublicID       string `json:"public_id"`
 		OwnerActorID   string `json:"owner_actor_id"`
 		OwnerActorType string `json:"owner_actor_type"`
 		Visibility     string `json:"visibility"`

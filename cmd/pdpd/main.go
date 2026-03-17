@@ -18,6 +18,7 @@ import (
 	"github.com/LCGant/role-pdp/internal/config"
 	"github.com/LCGant/role-pdp/internal/http/handlers"
 	"github.com/LCGant/role-pdp/internal/observability"
+	"github.com/LCGant/role-pdp/internal/social"
 	"github.com/LCGant/role-pdp/internal/store/cache"
 	"github.com/LCGant/role-pdp/internal/store/postgres"
 )
@@ -75,6 +76,7 @@ func main() {
 		ContextPolicies:      ctxPolicies,
 	})
 	rateLimiter := handlers.NewRateLimiter(cfg.RateLimitPerMin, cfg.RateLimitBurst)
+	socialClient := social.NewClient(cfg)
 
 	router := handlers.NewRouter(handlers.RouterParams{
 		Logger:         logger,
@@ -88,6 +90,7 @@ func main() {
 		Caches:         []handlers.CacheClearer{cachedStore, decisionCache},
 		AdminStore:     handlers.AdminAdapter{Inner: policyStore},
 		ClientIDHeader: cfg.ClientIDHeader,
+		Enricher:       socialClient,
 	})
 
 	server := &http.Server{

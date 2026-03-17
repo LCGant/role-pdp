@@ -18,13 +18,14 @@ type BatchDecisionResponse struct {
 const maxBatchDecisionRequests = 100
 
 type BatchDecisionHandler struct {
-	engine  authz.Engine
-	logger  *slog.Logger
-	limiter *RateLimiter
+	engine   authz.Engine
+	logger   *slog.Logger
+	limiter  *RateLimiter
+	enricher RequestEnricher
 }
 
-func NewBatchDecisionHandler(engine authz.Engine, logger *slog.Logger, limiter *RateLimiter) *BatchDecisionHandler {
-	return &BatchDecisionHandler{engine: engine, logger: logger, limiter: limiter}
+func NewBatchDecisionHandler(engine authz.Engine, logger *slog.Logger, limiter *RateLimiter, enricher RequestEnricher) *BatchDecisionHandler {
+	return &BatchDecisionHandler{engine: engine, logger: logger, limiter: limiter, enricher: enricher}
 }
 
 func (h *BatchDecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +62,19 @@ func (h *BatchDecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 				Allow:  false,
 				Reason: "invalid_request",
 			})
+			continue
+		}
+		if denyResp, err := enrichDecisionRequest(r.Context(), h.enricher, &single); err != nil {
+			if h.logger != nil {
+				h.logger.ErrorContext(r.Context(), "batch decision enrichment failed", "error", err)
+			}
+			decisions = append(decisions, authz.DecisionResponse{
+				Allow:  false,
+				Reason: "error_enriching",
+			})
+			continue
+		} else if denyResp != nil {
+			decisions = append(decisions, *denyResp)
 			continue
 		}
 		resp, err := h.engine.Decide(r.Context(), single)

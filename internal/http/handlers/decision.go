@@ -12,16 +12,18 @@ import (
 )
 
 type DecisionHandler struct {
-	engine  authz.Engine
-	logger  *slog.Logger
-	limiter *RateLimiter
+	engine   authz.Engine
+	logger   *slog.Logger
+	limiter  *RateLimiter
+	enricher RequestEnricher
 }
 
-func NewDecisionHandler(engine authz.Engine, logger *slog.Logger, limiter *RateLimiter) *DecisionHandler {
+func NewDecisionHandler(engine authz.Engine, logger *slog.Logger, limiter *RateLimiter, enricher RequestEnricher) *DecisionHandler {
 	return &DecisionHandler{
-		engine:  engine,
-		logger:  logger,
-		limiter: limiter,
+		engine:   engine,
+		logger:   logger,
+		limiter:  limiter,
+		enricher: enricher,
 	}
 }
 
@@ -52,6 +54,16 @@ func (h *DecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if denyResp, err := enrichDecisionRequest(r.Context(), h.enricher, &req); err != nil {
+		if h.logger != nil {
+			h.logger.ErrorContext(r.Context(), "decision enrichment failed", "error", err, "request_id", RequestIDFromContext(r.Context()))
+		}
+		respondError(w, http.StatusInternalServerError, "failed to enrich decision")
+		return
+	} else if denyResp != nil {
+		respondJSON(w, http.StatusOK, *denyResp)
+		return
+	}
 
 	resp, err := h.engine.Decide(r.Context(), req)
 	if err != nil {
@@ -67,13 +79,11 @@ func (h *DecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func ensureContextDefaults(req *authz.DecisionRequest, r *http.Request) {
-	req.Context.Method = strings.TrimSpace(req.Context.Method)
-	req.Context.Path = strings.TrimSpace(req.Context.Path)
-	req.Context.UserAgent = strings.TrimSpace(req.Context.UserAgent)
-	req.Context.IP = strings.TrimSpace(req.Context.IP)
+	req.Normalize()
 }
 
 func validateDecisionRequest(req authz.DecisionRequest) error {
+	req.Normalize()
 	if strings.TrimSpace(req.Subject.UserID) == "" {
 		return errors.New("subject.user_id is required")
 	}

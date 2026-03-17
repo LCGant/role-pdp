@@ -20,6 +20,7 @@ type RouterParams struct {
 	Caches         []CacheClearer
 	AdminStore     AdminStore
 	ClientIDHeader string
+	Enricher       RequestEnricher
 }
 
 func NewRouter(params RouterParams) http.Handler {
@@ -47,8 +48,8 @@ func NewRouter(params RouterParams) http.Handler {
 			respondError(w, http.StatusServiceUnavailable, "admin endpoints disabled")
 		}))
 	}
-	decision := NewDecisionHandler(params.Engine, params.Logger, params.RateLimiter)
-	batch := NewBatchDecisionHandler(params.Engine, params.Logger, params.RateLimiter)
+	decision := NewDecisionHandler(params.Engine, params.Logger, params.RateLimiter, params.Enricher)
+	batch := NewBatchDecisionHandler(params.Engine, params.Logger, params.RateLimiter, params.Enricher)
 	decisionHandler := internalTokenMiddleware(params.InternalToken)(decision)
 	batchHandler := internalTokenMiddleware(params.InternalToken)(batch)
 	mux.Handle("/v1/decision", decisionHandler)

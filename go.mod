@@ -1,9 +1,7 @@
 module github.com/LCGant/role-pdp
 
-go 1.24
-
-toolchain go1.24.12
-
+go 1.26.0
+toolchain go1.26.1
 require (
 	github.com/jackc/pgx/v5 v5.5.4
 	github.com/redis/go-redis/v9 v9.17.2

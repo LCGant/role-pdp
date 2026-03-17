@@ -137,6 +137,7 @@ func (e *PolicyEngine) Decide(ctx context.Context, req DecisionRequest) (Decisio
 	if e.store == nil {
 		return DecisionResponse{}, ErrStoreUnavailable
 	}
+	req.Normalize()
 	requiredAAL, stepUpMaxAge := e.stepUpRequirement(req.Action)
 
 	if req.Resource.TenantID != "" && req.Subject.TenantID != "" && req.Resource.TenantID != req.Subject.TenantID {
@@ -159,6 +160,14 @@ func (e *PolicyEngine) Decide(ctx context.Context, req DecisionRequest) (Decisio
 		observability.CacheMisses.Add(1)
 	}
 
+	if relationReason, denied := evaluateRelationshipDeny(req); denied {
+		resp := DecisionResponse{Allow: false, Reason: relationReason}
+		e.recordAudit(ctx, req, resp)
+		observability.DecisionsDeny.Add(1)
+		observability.DecisionsTotal.Add(1)
+		return resp, nil
+	}
+
 	perms, err := e.store.GetUserPermissions(ctx, req.Subject.UserID, req.Subject.TenantID)
 	if err != nil {
 		return DecisionResponse{}, err
@@ -169,6 +178,19 @@ func (e *PolicyEngine) Decide(ctx context.Context, req DecisionRequest) (Decisio
 		if ownerAllowed, ownerReason := evaluateOwnership(req); ownerAllowed {
 			allowed = true
 			reason = ownerReason
+		}
+	}
+
+	if !allowed {
+		if relationResp, decided := evaluateRelationship(req); decided {
+			e.recordAudit(ctx, req, relationResp)
+			if relationResp.Allow {
+				observability.DecisionsAllow.Add(1)
+			} else {
+				observability.DecisionsDeny.Add(1)
+			}
+			observability.DecisionsTotal.Add(1)
+			return relationResp, nil
 		}
 	}
 
@@ -299,7 +321,10 @@ func (e *PolicyEngine) shouldCache(req DecisionRequest, resp DecisionResponse, r
 	if !resp.Allow || len(resp.Obligations) > 0 {
 		return false
 	}
-	if req.Resource.OwnerID != "" {
+	if req.Resource.OwnerID != "" || req.Resource.OwnerActorID != "" {
+		return false
+	}
+	if req.HasRelationshipContext() {
 		return false
 	}
 	return strings.HasPrefix(resp.Reason, "rbac:")

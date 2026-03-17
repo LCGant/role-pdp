@@ -54,6 +54,96 @@ func TestEngineOwnershipFallback(t *testing.T) {
 	}
 }
 
+func TestEngineActorOwnershipFallback(t *testing.T) {
+	st := &stubStore{perms: []string{}}
+	engine := NewEngine(st, &observability.AuditLogger{Sink: st}, testLogger(), &Options{EnableOwnershipCheck: true, StepUpMaxAge: 0})
+
+	req := DecisionRequest{
+		Subject: Subject{
+			UserID:    "user-1",
+			TenantID:  "tenant-1",
+			ActorID:   "business-42",
+			ActorType: "business",
+			AAL:       1,
+		},
+		Action: "profiles:update",
+		Resource: Resource{
+			Type:           "profiles",
+			ID:             "p-1",
+			TenantID:       "tenant-1",
+			OwnerActorID:   "business-42",
+			OwnerActorType: "business",
+		},
+	}
+	resp, err := engine.Decide(context.Background(), req)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if !resp.Allow || resp.Reason != "owner_update" {
+		t.Fatalf("expected actor-owner allow, got %+v", resp)
+	}
+}
+
+func TestEngineBlockedRelationshipDeniesBeforeAllow(t *testing.T) {
+	st := &stubStore{perms: []string{"profiles:read"}}
+	engine := NewEngine(st, &observability.AuditLogger{Sink: st}, testLogger(), &Options{EnableOwnershipCheck: true, StepUpMaxAge: 0})
+
+	req := DecisionRequest{
+		Subject:  Subject{UserID: "user-1", TenantID: "tenant-1", AAL: 1},
+		Action:   "profiles:read",
+		Resource: Resource{Type: "profiles", ID: "profile-2", TenantID: "tenant-1", OwnerActorID: "user-2", Visibility: "public"},
+		Relationships: RelationshipInfo{
+			Blocked: true,
+		},
+	}
+	resp, err := engine.Decide(context.Background(), req)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if resp.Allow || resp.Reason != "blocked" {
+		t.Fatalf("expected blocked deny, got %+v", resp)
+	}
+}
+
+func TestEngineRelationshipVisibilityAllowsRead(t *testing.T) {
+	st := &stubStore{perms: []string{}}
+	engine := NewEngine(st, &observability.AuditLogger{Sink: st}, testLogger(), &Options{EnableOwnershipCheck: true, StepUpMaxAge: 0})
+
+	req := DecisionRequest{
+		Subject:  Subject{UserID: "user-1", TenantID: "tenant-1", AAL: 1},
+		Action:   "profiles:read",
+		Resource: Resource{Type: "profiles", ID: "profile-2", TenantID: "tenant-1", OwnerActorID: "user-2", Visibility: "friends_only"},
+		Relationships: RelationshipInfo{
+			Friend: true,
+		},
+	}
+	resp, err := engine.Decide(context.Background(), req)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if !resp.Allow || resp.Reason != "visibility_friends" {
+		t.Fatalf("expected relation-based allow, got %+v", resp)
+	}
+}
+
+func TestEngineRelationshipVisibilityDeniesRead(t *testing.T) {
+	st := &stubStore{perms: []string{}}
+	engine := NewEngine(st, &observability.AuditLogger{Sink: st}, testLogger(), &Options{EnableOwnershipCheck: true, StepUpMaxAge: 0})
+
+	req := DecisionRequest{
+		Subject:  Subject{UserID: "user-1", TenantID: "tenant-1", AAL: 1},
+		Action:   "profiles:read",
+		Resource: Resource{Type: "profiles", ID: "profile-2", TenantID: "tenant-1", OwnerActorID: "user-2", Visibility: "private"},
+	}
+	resp, err := engine.Decide(context.Background(), req)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if resp.Allow || resp.Reason != "visibility_denied" {
+		t.Fatalf("expected visibility deny, got %+v", resp)
+	}
+}
+
 func TestEngineStepUpRequired(t *testing.T) {
 	st := &stubStore{perms: []string{"admin:delete"}}
 	engine := NewEngine(st, &observability.AuditLogger{Sink: st}, testLogger(), &Options{EnableOwnershipCheck: true})

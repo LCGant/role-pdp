@@ -3,9 +3,6 @@ package authz
 import "strings"
 
 func evaluateOwnership(req DecisionRequest) (bool, string) {
-	if req.Resource.OwnerID == "" || req.Subject.UserID == "" {
-		return false, ""
-	}
 	if req.Resource.TenantID != "" && req.Resource.TenantID != req.Subject.TenantID {
 		return false, ""
 	}
@@ -21,7 +18,10 @@ func evaluateOwnership(req DecisionRequest) (bool, string) {
 
 	switch verb {
 	case "read", "update":
-		if req.Resource.OwnerID == req.Subject.UserID {
+		if req.Resource.OwnerActorID != "" && req.Subject.ActorID != "" && req.Resource.OwnerActorID == req.Subject.ActorID {
+			return true, "owner_" + verb
+		}
+		if req.Resource.OwnerID != "" && req.Subject.UserID != "" && req.Resource.OwnerID == req.Subject.UserID {
 			return true, "owner_" + verb
 		}
 	}

@@ -122,6 +122,7 @@ func (c *DecisionCache) evictIfNeeded(now time.Time, incomingKey string) {
 }
 
 func decisionCacheKey(req DecisionRequest) string {
+	req.Normalize()
 	if req.Subject.UserID == "" || req.Subject.TenantID == "" || req.Action == "" || req.Resource.Type == "" {
 		return ""
 	}
@@ -136,6 +137,8 @@ func decisionCacheKey(req DecisionRequest) string {
 	return strings.Join([]string{
 		strings.ToLower(req.Subject.TenantID),
 		strings.ToLower(req.Subject.UserID),
+		strings.ToLower(req.Subject.ActorID),
+		strings.ToLower(req.Subject.ActorType),
 		strings.ToLower(req.Action),
 		strings.ToLower(req.Resource.Type),
 		strings.ToLower(resourceTenant),

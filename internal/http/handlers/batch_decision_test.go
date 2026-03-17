@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/LCGant/role-pdp/internal/authz"
+	"github.com/LCGant/role-pdp/internal/social"
 )
 
 func TestBatchDecisionRejectsTooManyRequests(t *testing.T) {
@@ -99,5 +101,62 @@ func TestBatchDecisionContextRemainsEmptyWhenPayloadMissing(t *testing.T) {
 	}
 	if engine.lastReq.Context.IP != "" || engine.lastReq.Context.Method != "" || engine.lastReq.Context.Path != "" || engine.lastReq.Context.UserAgent != "" {
 		t.Fatalf("expected missing batch context to remain empty, got %+v", engine.lastReq.Context)
+	}
+}
+
+func TestBatchDecisionProfileNotFoundReturnsDeny(t *testing.T) {
+	engine := &captureEngine{}
+	router := NewRouter(RouterParams{
+		Engine:        engine,
+		EnableMetrics: false,
+		InternalToken: "internal-secret",
+		Enricher: stubEnricher{fn: func(ctx context.Context, req *authz.DecisionRequest) error {
+			return social.ErrNotFound
+		}},
+	})
+
+	body := `{"requests":[{"subject":{"user_id":"u1","tenant_id":"t1"},"action":"profiles:read","resource":{"type":"profiles","id":"missing","tenant_id":"t1"}}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/batch-decision", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", "internal-secret")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var out BatchDecisionResponse
+	if err := json.NewDecoder(rr.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out.Decisions) != 1 || out.Decisions[0].Allow || out.Decisions[0].Reason != "resource_not_found" {
+		t.Fatalf("expected resource_not_found deny, got %+v", out)
+	}
+}
+
+func TestBatchDecisionProfilesFailClosedWithoutSocialEnricher(t *testing.T) {
+	engine := &captureEngine{}
+	router := NewRouter(RouterParams{
+		Engine:        engine,
+		EnableMetrics: false,
+		InternalToken: "internal-secret",
+	})
+
+	body := `{"requests":[{"subject":{"user_id":"u1","tenant_id":"t1"},"action":"profiles:read","resource":{"type":"profiles","id":"alice","tenant_id":"t1","visibility":"public"}}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/batch-decision", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", "internal-secret")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var out BatchDecisionResponse
+	if err := json.NewDecoder(rr.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out.Decisions) != 1 || out.Decisions[0].Allow || out.Decisions[0].Reason != "social_context_unavailable" {
+		t.Fatalf("expected social_context_unavailable deny, got %+v", out)
 	}
 }

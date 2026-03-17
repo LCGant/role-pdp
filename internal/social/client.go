@@ -49,6 +49,17 @@ type playlistAuthzContext struct {
 	ViewerCollaborator bool `json:"viewer_collaborator"`
 }
 
+type postAuthzContext struct {
+	Post struct {
+		OwnerActorID   string `json:"owner_actor_id"`
+		OwnerActorType string `json:"owner_actor_type"`
+		Visibility     string `json:"visibility"`
+	} `json:"post"`
+	ViewerBlocked bool `json:"viewer_blocked"`
+	ViewerFollows bool `json:"viewer_follows"`
+	ViewerFriend  bool `json:"viewer_friend"`
+}
+
 type eventAuthzContext struct {
 	Event struct {
 		OwnerActorID   string `json:"owner_actor_id"`
@@ -84,7 +95,7 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 		return nil
 	}
 	resourceType := strings.ToLower(strings.TrimSpace(req.Resource.Type))
-	if resourceType != "profiles" && resourceType != "playlists" && resourceType != "events" {
+	if resourceType != "profiles" && resourceType != "posts" && resourceType != "playlists" && resourceType != "events" {
 		return nil
 	}
 	if strings.TrimSpace(req.Resource.ID) == "" {
@@ -103,6 +114,22 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 			req.Resource.OwnerID = req.Resource.OwnerActorID
 		}
 		req.Resource.Visibility = strings.TrimSpace(strings.ToLower(enriched.Profile.Visibility))
+		req.Relationships = authz.RelationshipInfo{
+			Blocked:   enriched.ViewerBlocked,
+			Following: enriched.ViewerFollows,
+			Friend:    enriched.ViewerFriend,
+		}
+	case "posts":
+		enriched, err := c.fetchPostAuthzContext(ctx, req)
+		if err != nil {
+			return err
+		}
+		req.Resource.OwnerActorID = strings.TrimSpace(enriched.Post.OwnerActorID)
+		req.Resource.OwnerActorType = strings.TrimSpace(strings.ToLower(enriched.Post.OwnerActorType))
+		if req.Resource.OwnerActorID != "" {
+			req.Resource.OwnerID = req.Resource.OwnerActorID
+		}
+		req.Resource.Visibility = strings.TrimSpace(strings.ToLower(enriched.Post.Visibility))
 		req.Relationships = authz.RelationshipInfo{
 			Blocked:   enriched.ViewerBlocked,
 			Following: enriched.ViewerFollows,
@@ -146,6 +173,61 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 		}
 	}
 	return nil
+}
+
+func (c *Client) fetchPostAuthzContext(ctx context.Context, req *authz.DecisionRequest) (postAuthzContext, error) {
+	timeout := c.timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	endpoint := c.baseURL + "/internal/posts/" + url.PathEscape(strings.TrimSpace(req.Resource.ID)) + "/authz-context"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return postAuthzContext{}, err
+	}
+	httpReq.Header.Set("X-Internal-Token", c.internalToken)
+	httpReq.Header.Set("X-User-Id", req.Subject.UserID)
+	if strings.TrimSpace(req.Subject.ActorID) != "" {
+		httpReq.Header.Set("X-Actor-Id", req.Subject.ActorID)
+	}
+	if strings.TrimSpace(req.Subject.ActorType) != "" {
+		httpReq.Header.Set("X-Actor-Type", req.Subject.ActorType)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return postAuthzContext{}, err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return postAuthzContext{}, ErrNotFound
+	default:
+		return postAuthzContext{}, fmt.Errorf("social service returned %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if err != nil {
+		return postAuthzContext{}, err
+	}
+	if len(body) > 1<<20 {
+		return postAuthzContext{}, errors.New("social response too large")
+	}
+	var out postAuthzContext
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&out); err != nil {
+		return postAuthzContext{}, err
+	}
+	if err := dec.Decode(new(struct{})); err != io.EOF {
+		return postAuthzContext{}, err
+	}
+	return out, nil
 }
 
 func (c *Client) fetchProfileAuthzContext(ctx context.Context, req *authz.DecisionRequest) (profileAuthzContext, error) {

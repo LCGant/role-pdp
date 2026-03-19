@@ -20,8 +20,11 @@ func TestClientEnrichHydratesProfileDecision(t *testing.T) {
 		if r.Header.Get("X-User-Id") != "u1" {
 			t.Fatalf("unexpected user id header")
 		}
+		if r.Header.Get("X-Tenant-Id") != "t1" {
+			t.Fatalf("unexpected tenant header")
+		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"profile":{"actor_id":"u2","actor_type":"person","visibility":"private"},"viewer_blocked":true,"viewer_follows":true,"viewer_friend":true}`))
+		_, _ = w.Write([]byte(`{"profile":{"tenant_id":"tenant-social","actor_id":"u2","actor_type":"person","visibility":"private"},"viewer_blocked":true,"viewer_follows":true,"viewer_friend":true}`))
 	}))
 	defer srv.Close()
 
@@ -42,7 +45,7 @@ func TestClientEnrichHydratesProfileDecision(t *testing.T) {
 	if err := client.Enrich(context.Background(), &req); err != nil {
 		t.Fatalf("enrich: %v", err)
 	}
-	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "private" {
+	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "private" || req.Resource.TenantID != "tenant-social" {
 		t.Fatalf("expected enriched resource context, got %+v", req.Resource)
 	}
 	if !req.Relationships.Blocked || !req.Relationships.Friend || !req.Relationships.Following {
@@ -80,7 +83,7 @@ func TestClientEnrichHydratesPlaylistDecision(t *testing.T) {
 			t.Fatalf("unexpected user id header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"playlist":{"owner_actor_id":"u2","owner_actor_type":"person","visibility":"shared"},"viewer_blocked":false,"viewer_follows":true,"viewer_friend":false,"viewer_shared":false,"viewer_collaborator":true}`))
+		_, _ = w.Write([]byte(`{"playlist":{"tenant_id":"tenant-social","owner_actor_id":"u2","owner_actor_type":"person","visibility":"shared"},"viewer_blocked":false,"viewer_follows":true,"viewer_friend":false,"viewer_shared":false,"viewer_collaborator":true}`))
 	}))
 	defer srv.Close()
 
@@ -98,7 +101,7 @@ func TestClientEnrichHydratesPlaylistDecision(t *testing.T) {
 	if err := client.Enrich(context.Background(), &req); err != nil {
 		t.Fatalf("enrich playlist: %v", err)
 	}
-	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "shared" {
+	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "shared" || req.Resource.TenantID != "tenant-social" {
 		t.Fatalf("expected enriched playlist resource context, got %+v", req.Resource)
 	}
 	if !req.Relationships.Collaborator || req.Relationships.Shared || !req.Relationships.Following || req.Relationships.Friend {
@@ -115,7 +118,7 @@ func TestClientEnrichHydratesEventDecision(t *testing.T) {
 			t.Fatalf("unexpected user id header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"event":{"owner_actor_id":"u2","owner_actor_type":"person","visibility":"invite_only"},"viewer_blocked":false,"viewer_follows":true,"viewer_friend":true,"viewer_invited":true,"viewer_participant":false,"viewer_organizer":false}`))
+		_, _ = w.Write([]byte(`{"event":{"tenant_id":"tenant-social","owner_actor_id":"u2","owner_actor_type":"person","visibility":"invite_only"},"viewer_blocked":false,"viewer_follows":true,"viewer_friend":true,"viewer_invited":true,"viewer_participant":false,"viewer_organizer":false}`))
 	}))
 	defer srv.Close()
 
@@ -133,7 +136,7 @@ func TestClientEnrichHydratesEventDecision(t *testing.T) {
 	if err := client.Enrich(context.Background(), &req); err != nil {
 		t.Fatalf("enrich event: %v", err)
 	}
-	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "invite_only" {
+	if req.Resource.OwnerActorID != "u2" || req.Resource.Visibility != "invite_only" || req.Resource.TenantID != "tenant-social" {
 		t.Fatalf("expected enriched event resource context, got %+v", req.Resource)
 	}
 	if !req.Relationships.Invited || !req.Relationships.Friend || !req.Relationships.Following || req.Relationships.Participant {

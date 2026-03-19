@@ -28,6 +28,7 @@ type Client struct {
 type profileAuthzContext struct {
 	Profile struct {
 		PublicID   string `json:"public_id"`
+		TenantID   string `json:"tenant_id"`
 		ActorID    string `json:"actor_id"`
 		ActorType  string `json:"actor_type"`
 		Visibility string `json:"visibility"`
@@ -40,6 +41,7 @@ type profileAuthzContext struct {
 type playlistAuthzContext struct {
 	Playlist struct {
 		PublicID       string `json:"public_id"`
+		TenantID       string `json:"tenant_id"`
 		OwnerActorID   string `json:"owner_actor_id"`
 		OwnerActorType string `json:"owner_actor_type"`
 		Visibility     string `json:"visibility"`
@@ -54,6 +56,7 @@ type playlistAuthzContext struct {
 type postAuthzContext struct {
 	Post struct {
 		PublicID       string `json:"public_id"`
+		TenantID       string `json:"tenant_id"`
 		OwnerActorID   string `json:"owner_actor_id"`
 		OwnerActorType string `json:"owner_actor_type"`
 		Visibility     string `json:"visibility"`
@@ -66,6 +69,7 @@ type postAuthzContext struct {
 type eventAuthzContext struct {
 	Event struct {
 		PublicID       string `json:"public_id"`
+		TenantID       string `json:"tenant_id"`
 		OwnerActorID   string `json:"owner_actor_id"`
 		OwnerActorType string `json:"owner_actor_type"`
 		Visibility     string `json:"visibility"`
@@ -114,6 +118,7 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 		}
 		req.Resource.OwnerActorID = strings.TrimSpace(enriched.Profile.ActorID)
 		req.Resource.OwnerActorType = strings.TrimSpace(strings.ToLower(enriched.Profile.ActorType))
+		req.Resource.TenantID = strings.TrimSpace(strings.ToLower(enriched.Profile.TenantID))
 		if req.Resource.OwnerActorID != "" {
 			req.Resource.OwnerID = req.Resource.OwnerActorID
 		}
@@ -130,6 +135,7 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 		}
 		req.Resource.OwnerActorID = strings.TrimSpace(enriched.Post.OwnerActorID)
 		req.Resource.OwnerActorType = strings.TrimSpace(strings.ToLower(enriched.Post.OwnerActorType))
+		req.Resource.TenantID = strings.TrimSpace(strings.ToLower(enriched.Post.TenantID))
 		if req.Resource.OwnerActorID != "" {
 			req.Resource.OwnerID = req.Resource.OwnerActorID
 		}
@@ -146,6 +152,7 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 		}
 		req.Resource.OwnerActorID = strings.TrimSpace(enriched.Playlist.OwnerActorID)
 		req.Resource.OwnerActorType = strings.TrimSpace(strings.ToLower(enriched.Playlist.OwnerActorType))
+		req.Resource.TenantID = strings.TrimSpace(strings.ToLower(enriched.Playlist.TenantID))
 		if req.Resource.OwnerActorID != "" {
 			req.Resource.OwnerID = req.Resource.OwnerActorID
 		}
@@ -164,6 +171,7 @@ func (c *Client) Enrich(ctx context.Context, req *authz.DecisionRequest) error {
 		}
 		req.Resource.OwnerActorID = strings.TrimSpace(enriched.Event.OwnerActorID)
 		req.Resource.OwnerActorType = strings.TrimSpace(strings.ToLower(enriched.Event.OwnerActorType))
+		req.Resource.TenantID = strings.TrimSpace(strings.ToLower(enriched.Event.TenantID))
 		if req.Resource.OwnerActorID != "" {
 			req.Resource.OwnerID = req.Resource.OwnerActorID
 		}
@@ -199,6 +207,9 @@ func (c *Client) fetchPostAuthzContext(ctx context.Context, req *authz.DecisionR
 	}
 	if strings.TrimSpace(req.Subject.ActorType) != "" {
 		httpReq.Header.Set("X-Actor-Type", req.Subject.ActorType)
+	}
+	if strings.TrimSpace(req.Subject.TenantID) != "" {
+		httpReq.Header.Set("X-Tenant-Id", req.Subject.TenantID)
 	}
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -255,6 +266,9 @@ func (c *Client) fetchProfileAuthzContext(ctx context.Context, req *authz.Decisi
 	if strings.TrimSpace(req.Subject.ActorType) != "" {
 		httpReq.Header.Set("X-Actor-Type", req.Subject.ActorType)
 	}
+	if strings.TrimSpace(req.Subject.TenantID) != "" {
+		httpReq.Header.Set("X-Tenant-Id", req.Subject.TenantID)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -310,6 +324,9 @@ func (c *Client) fetchPlaylistAuthzContext(ctx context.Context, req *authz.Decis
 	if strings.TrimSpace(req.Subject.ActorType) != "" {
 		httpReq.Header.Set("X-Actor-Type", req.Subject.ActorType)
 	}
+	if strings.TrimSpace(req.Subject.TenantID) != "" {
+		httpReq.Header.Set("X-Tenant-Id", req.Subject.TenantID)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -364,6 +381,9 @@ func (c *Client) fetchEventAuthzContext(ctx context.Context, req *authz.Decision
 	}
 	if strings.TrimSpace(req.Subject.ActorType) != "" {
 		httpReq.Header.Set("X-Actor-Type", req.Subject.ActorType)
+	}
+	if strings.TrimSpace(req.Subject.TenantID) != "" {
+		httpReq.Header.Set("X-Tenant-Id", req.Subject.TenantID)
 	}
 
 	resp, err := c.httpClient.Do(httpReq)

@@ -29,9 +29,9 @@ func TestClientEnrichHydratesProfileDecision(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(config.Config{
-		SocialBaseURL:       srv.URL,
-		SocialInternalToken: "secret",
-		SocialTimeout:       time.Second,
+		SocialBaseURL:            srv.URL,
+		SocialAuthzInternalToken: "secret",
+		SocialTimeout:            time.Second,
 	})
 	req := authz.DecisionRequest{
 		Subject:  authz.Subject{UserID: "u1", TenantID: "t1"},
@@ -60,9 +60,9 @@ func TestClientEnrichReturnsNotFound(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(config.Config{
-		SocialBaseURL:       srv.URL,
-		SocialInternalToken: "secret",
-		SocialTimeout:       time.Second,
+		SocialBaseURL:            srv.URL,
+		SocialAuthzInternalToken: "secret",
+		SocialTimeout:            time.Second,
 	})
 	req := authz.DecisionRequest{
 		Subject:  authz.Subject{UserID: "u1", TenantID: "t1"},
@@ -88,9 +88,9 @@ func TestClientEnrichHydratesPlaylistDecision(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(config.Config{
-		SocialBaseURL:       srv.URL,
-		SocialInternalToken: "secret",
-		SocialTimeout:       time.Second,
+		SocialBaseURL:            srv.URL,
+		SocialAuthzInternalToken: "secret",
+		SocialTimeout:            time.Second,
 	})
 	req := authz.DecisionRequest{
 		Subject:  authz.Subject{UserID: "u1", TenantID: "t1"},
@@ -123,9 +123,9 @@ func TestClientEnrichHydratesEventDecision(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(config.Config{
-		SocialBaseURL:       srv.URL,
-		SocialInternalToken: "secret",
-		SocialTimeout:       time.Second,
+		SocialBaseURL:            srv.URL,
+		SocialAuthzInternalToken: "secret",
+		SocialTimeout:            time.Second,
 	})
 	req := authz.DecisionRequest{
 		Subject:  authz.Subject{UserID: "u1", TenantID: "t1"},

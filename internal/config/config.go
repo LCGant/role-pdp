@@ -50,7 +50,7 @@ type Config struct {
 	AuditTimeout        time.Duration
 	AuditAllowInsecure  bool
 	SocialBaseURL       string
-	SocialInternalToken string
+	SocialAuthzInternalToken string
 	SocialTimeout       time.Duration
 	SocialAllowInsecure bool
 }
@@ -92,7 +92,7 @@ func Load() Config {
 		AuditTimeout:        envDuration("AUDIT_TIMEOUT", 5*time.Second),
 		AuditAllowInsecure:  envBool("AUDIT_ALLOW_INSECURE_HTTP", false),
 		SocialBaseURL:       envString("SOCIAL_BASE_URL", ""),
-		SocialInternalToken: envString("SOCIAL_INTERNAL_TOKEN", ""),
+		SocialAuthzInternalToken: envString("SOCIAL_AUTHZ_INTERNAL_TOKEN", ""),
 		SocialTimeout:       envDuration("SOCIAL_TIMEOUT", 5*time.Second),
 		SocialAllowInsecure: envBool("SOCIAL_ALLOW_INSECURE_HTTP", false),
 		Env:                 envString("PDP_ENV", "development"),
@@ -109,11 +109,11 @@ func (c Config) Validate() error {
 	if err := validateRemoteURL(c.AuditBaseURL, c.AuditAllowInsecure); err != nil {
 		return err
 	}
-	if c.SocialBaseURL != "" && c.SocialInternalToken == "" {
-		return errors.New("SOCIAL_INTERNAL_TOKEN is required when SOCIAL_BASE_URL is set")
+	if c.SocialBaseURL != "" && c.SocialAuthzInternalToken == "" {
+		return errors.New("SOCIAL_AUTHZ_INTERNAL_TOKEN is required when SOCIAL_BASE_URL is set")
 	}
-	if c.SocialBaseURL == "" && c.SocialInternalToken != "" {
-		return errors.New("SOCIAL_BASE_URL is required when SOCIAL_INTERNAL_TOKEN is set")
+	if c.SocialBaseURL == "" && c.SocialAuthzInternalToken != "" {
+		return errors.New("SOCIAL_BASE_URL is required when SOCIAL_AUTHZ_INTERNAL_TOKEN is set")
 	}
 	if err := validateRemoteURL(c.SocialBaseURL, c.SocialAllowInsecure); err != nil {
 		return err

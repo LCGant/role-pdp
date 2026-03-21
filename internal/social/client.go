@@ -83,7 +83,7 @@ type eventAuthzContext struct {
 }
 
 func NewClient(cfg config.Config) *Client {
-	if strings.TrimSpace(cfg.SocialBaseURL) == "" || strings.TrimSpace(cfg.SocialInternalToken) == "" {
+	if strings.TrimSpace(cfg.SocialBaseURL) == "" || strings.TrimSpace(cfg.SocialAuthzInternalToken) == "" {
 		return nil
 	}
 	timeout := cfg.SocialTimeout
@@ -92,7 +92,7 @@ func NewClient(cfg config.Config) *Client {
 	}
 	return &Client{
 		baseURL:       strings.TrimRight(cfg.SocialBaseURL, "/"),
-		internalToken: cfg.SocialInternalToken,
+		internalToken: cfg.SocialAuthzInternalToken,
 		timeout:       timeout,
 		httpClient:    &http.Client{Timeout: timeout},
 	}

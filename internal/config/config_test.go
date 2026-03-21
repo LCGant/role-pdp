@@ -19,8 +19,8 @@ func TestValidateRejectsRemoteAuditHTTPByDefault(t *testing.T) {
 
 func TestValidateRejectsRemoteSocialHTTPByDefault(t *testing.T) {
 	cfg := Config{
-		SocialBaseURL:       "http://social:8080",
-		SocialInternalToken: "secret",
+		SocialBaseURL:            "http://social:8080",
+		SocialAuthzInternalToken: "secret",
 	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatalf("expected remote http social url to be rejected without explicit opt-in")
